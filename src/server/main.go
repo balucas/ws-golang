@@ -16,7 +16,8 @@ type counters struct {
 }
 
 var (
-	c = counters{}
+	//map to temporarily store counters
+	m = make(map[string]*counters)
 
 	content = []string{"sports", "entertainment", "business", "education"}
 )
@@ -26,11 +27,17 @@ func welcomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func viewHandler(w http.ResponseWriter, r *http.Request) {
-	data := content[rand.Intn(len(content))]
 
-	c.Lock()
-	c.view++
-	c.Unlock()
+	data := content[rand.Intn(len(content))] + ":" + time.Now().Format("2006-01-02 15:04")
+
+	//check if content already registered views 
+	if _, ok := m[data]; !ok {
+		m[data] = &counters{}
+	}
+
+	m[data].Lock()
+	m[data].view++
+	m[data].Unlock()
 
 	err := processRequest(r)
 	if err != nil {
@@ -43,6 +50,9 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	if rand.Intn(100) < 50 {
 		processClick(data)
 	}
+
+	//debug
+	fmt.Println("Key: ", data, ", Value: ", m[data].view, m[data].click)
 }
 
 func processRequest(r *http.Request) error {
@@ -51,9 +61,9 @@ func processRequest(r *http.Request) error {
 }
 
 func processClick(data string) error {
-	c.Lock()
-	c.click++
-	c.Unlock()
+	m[data].Lock()
+	m[data].click++
+	m[data].Unlock()
 
 	return nil
 }
