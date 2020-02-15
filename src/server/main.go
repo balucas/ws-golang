@@ -81,19 +81,30 @@ func isAllowed() bool {
 
 func periodicUpload() error {
 	uploadTicker := time.NewTicker( 5 * time.Second)
+	minuteTicker := getMinuteTicker()
 
 	for {
 		select {
 		case <-uploadTicker.C:
 			fmt.Println("Tick")
 			uploadCounters()
+		case <-minuteTicker.C:
+			minuteTicker = getMinuteTicker()
+
+			//reset map
+			m = make(map[string]*counters)
 		}
 	}
 }
 
+func getMinuteTicker() *time.Ticker {
+	//return new ticker that triggers on the minute
+	return time.NewTicker(time.Second * time.Duration(60-time.Now().Second()))
+}
+
 func uploadCounters() error {
-	
-	fmt.Println("Uploading")
+
+	fmt.Println("Uploading map: ", m)
 
 	//read json store
 	jsonFile, err := os.Open("store.json")
