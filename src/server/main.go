@@ -53,7 +53,6 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	if rand.Intn(100) < 50 {
 		processClick(data)
 	}
-	uploadCounters() //testing
 }
 
 func processRequest(r *http.Request) error {
@@ -80,7 +79,21 @@ func isAllowed() bool {
 	return true
 }
 
+func periodicUpload() error {
+	uploadTicker := time.NewTicker( 5 * time.Second)
+
+	for {
+		select {
+		case <-uploadTicker.C:
+			fmt.Println("Tick")
+			uploadCounters()
+		}
+	}
+}
+
 func uploadCounters() error {
+	
+	fmt.Println("Uploading")
 
 	//read json store
 	jsonFile, err := os.Open("store.json")
@@ -125,6 +138,9 @@ func main() {
 	http.HandleFunc("/", welcomeHandler)
 	http.HandleFunc("/view/", viewHandler)
 	http.HandleFunc("/stats/", statsHandler)
+
+	//run upload routine
+	go periodicUpload()
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
