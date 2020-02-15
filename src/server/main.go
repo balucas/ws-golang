@@ -22,6 +22,10 @@ var (
 	//map to temporarily store counters
 	m = make(map[string]*counters)
 
+	statsMinLimit = 10
+	statsCounter = 0
+	statsSync sync.Mutex
+
 	content = []string{"sports", "entertainment", "business", "education"}
 )
 
@@ -76,10 +80,14 @@ func statsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func isAllowed() bool {
-	return true
+	statsSync.Lock()
+	statsCounter++
+	statsSync.Unlock()
+
+	return statsCounter < statsMinLimit
 }
 
-func periodicUpload() error {
+func periodic() error {
 	uploadTicker := time.NewTicker( 5 * time.Second)
 	minuteTicker := getMinuteTicker()
 
@@ -93,6 +101,9 @@ func periodicUpload() error {
 
 			//reset map
 			m = make(map[string]*counters)
+
+			//reset stats limit
+			statsCounter = 0
 		}
 	}
 }
@@ -107,7 +118,7 @@ func uploadCounters() error {
 	fmt.Println("Uploading map: ", m)
 
 	//read json store
-	jsonFile, err := os.Open("store.json")
+	jsonFile, err := os.OpenFile("store.json", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 
 	if err!= nil {
 		fmt.Println(err)
@@ -151,7 +162,7 @@ func main() {
 	http.HandleFunc("/stats/", statsHandler)
 
 	//run upload routine
-	go periodicUpload()
+	go periodic()
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
