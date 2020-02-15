@@ -7,12 +7,15 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"encoding/json"
+	"io/ioutil"
+	"os"
 )
 
 type counters struct {
-	sync.Mutex
-	view  int
-	click int
+	sync.Mutex	`json:"-"`
+	View  int	`json:"view"`
+	Click int	`json:"click"`
 }
 
 var (
@@ -36,7 +39,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	m[data].Lock()
-	m[data].view++
+	m[data].View++
 	m[data].Unlock()
 
 	err := processRequest(r)
@@ -50,9 +53,7 @@ func viewHandler(w http.ResponseWriter, r *http.Request) {
 	if rand.Intn(100) < 50 {
 		processClick(data)
 	}
-
-	//debug
-	fmt.Println("Key: ", data, ", Value: ", m[data].view, m[data].click)
+	uploadCounters() //testing
 }
 
 func processRequest(r *http.Request) error {
@@ -62,7 +63,7 @@ func processRequest(r *http.Request) error {
 
 func processClick(data string) error {
 	m[data].Lock()
-	m[data].click++
+	m[data].Click++
 	m[data].Unlock()
 
 	return nil
@@ -80,6 +81,43 @@ func isAllowed() bool {
 }
 
 func uploadCounters() error {
+
+	//read json store
+	jsonFile, err := os.Open("store.json")
+
+	if err!= nil {
+		fmt.Println(err)
+	}
+
+	byteValue, err := ioutil.ReadAll(jsonFile)
+
+	var store map[string]counters
+
+	//create store if json file is empty
+	if len(byteValue) == 0 {
+		store = make(map[string]counters)
+	}else{
+		json.Unmarshal(byteValue, &store)
+	}
+
+	//insert values
+	for k, v := range m {
+		store[k] = *v
+	}
+
+	jsonString, err := json.Marshal(store)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	//write to store
+	err = ioutil.WriteFile("store.json", jsonString, 0644)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
 	return nil
 }
 
